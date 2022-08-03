@@ -53,8 +53,17 @@ namespace PA_DronePack
         #endregion
 
         #region Collision Settings
-         
+        [Tooltip("set whether or not the drone falls after a large impact")]//设置无人机在遭遇一个大的撞击后是否坠落
+        public bool fallAfterCollision = true;
+        [Tooltip("sets the min. collision force used to drop the drone")]//设置撞落无人机的最小碰撞力
+        public float fallMinimumForce = 6f;
+        [Tooltip("sets the min. collision force used to create a spark")]//设置产生火花的最小碰撞力
+        public float sparkMinimumForce = 1f;
+        [Tooltip("the spark particle/object spawned on a collision")]//碰撞时产生的火花粒子/对象
+        public GameObject sparkPrefab;
         #endregion
+        
+        
 
         #region Sound Effects
         #endregion
@@ -97,8 +106,8 @@ namespace PA_DronePack
         void Awake()
         {
             #region Cache Components & Start Values
-            coll = GetComponent<Collider>();        // 无人机的collider
-            rigidBody = GetComponent<Rigidbody>();  // 无人机的 rigidbody
+            coll = GetComponent<Collider>();        // 获取无人机的collider属性
+            rigidBody = GetComponent<Rigidbody>();  // 获取无人机的 rigidbody属性
             startPosition = transform.position;     // 无人机的初始位置
             startRotation = transform.rotation;     // 无人机的初始角度
             oGrav = rigidBody.useGravity;           // 无人机的刚体重力属性
@@ -236,6 +245,72 @@ namespace PA_DronePack
         
 
         #region Public Functions
+
+        /*
+         * Collision class用于描述碰撞
+         * 碰撞信息会传递到 Collider.OnCollisionEnter、Collider.OnCollisionStay 和 Collider.OnCollisionExit 事件。
+         * 当该碰撞体/刚体已开始接触另一个刚体/碰撞体时，调用 OnCollisionEnter,
+         * OnCollisionEnter 被传入 Collision 类，而不是 Collider。
+         * 
+         */
+        public void OnCollisionEnter(Collision newObject)
+        {
+            #region regidBody collision
+            /*Collision.relativeVelocity：
+             public Vector3 relativeVelocity ;
+             描述这两个碰撞对象的相对线性速度（只读）
+             Vector3.magnitude： 返回该向量的长度。（只读）
+             */
+            collisionMagnitude = newObject.relativeVelocity.magnitude;//记录施加到刚体轴的碰撞力（实际上是速度）
+            //如果撞击力大于产生火花的最小力，在撞击处产生火花
+            if (collisionMagnitude > sparkMinimumForce)
+            {
+                /*
+                 * Collision.contacts: public ContactPoint[] contacts ;物理引擎生成的接触点。
+                 * ContactPoint: struct in UnityEngine,描述发生碰撞的接触点。接触点存储在 Collision 结构中
+                 * ContactPoint中的属性:
+                 *          normal	接触点的法线。
+                            otherCollider	在该点接触的其他碰撞体。
+                            point	接触点。
+                            separation	在该接触点的碰撞体之间的距离。
+                            thisCollider	在该点接触的第一个碰撞体。
+                 */
+                SpawnSparkPrefab(newObject.contacts[0].point);
+            }
+            //如果撞击的力大于最小下坠力，关闭发动机，无人机坠落
+            if (collisionMagnitude > fallMinimumForce && fallAfterCollision)
+            {
+                motorOn = false;
+            }
+            #endregion
+        }
+
+        /*
+         * 对应正在接触刚体/碰撞体的每一个碰撞体/刚体，每帧调用一次 OnCollisionStay。
+         * OnCollisionStay(Collision collisionInfo)
+         * 让我们假设碰撞开始，碰撞器保持相交一段时间（几帧），一段时间后它们再次分离。 那么事件是：
+           OnCollisionEnter 仅用于第一帧，直到 OnCollisionExit 之后才再次出现
+           OnCollisionStay 整个持续时间（所有帧）
+           OnCollisionExit 仅适用于最后一帧 
+        */
+        public void OnCollisionStay(Collision newObject)
+        {
+            /*
+             *   Collider.bounds: 碰撞体的世界空间包围体积（只读）
+             *   Collider.bounds.extents: 该包围盒的范围。这始终是这些 Bounds 的 size 的一半。
+             *   coll是无人机的collider属性
+             *
+             * 在无人机的collider和ground的collider已经接触的情况下，如果groundDistance<coll.bounds.extents.y + 0.15f，
+             * 那么我们就不允许无人机再继续向下运动（如果继续向下无人机可能会进入ground的内部）
+             */
+            if (groundDistance<coll.bounds.extents.y + 0.15f)//如果无人机与它正下方的另一个物体接触
+            {
+                //Mathf.Infinity是正无穷大的表示形式（只读）
+                liftForce = Mathf.Clamp(liftForce, 0, Mathf.Infinity);//阻止无人机进一步降低（防止穿过地面）
+            }
+            //Debug.Log(coll.bounds.extents);
+        }
+
         public void ToggleMotor() { motorOn = !motorOn; }//Toggle 切换
         //public void ToggleHeadless() { headless = !headless; }
         public void DriveInput(float input) { if (input > 0) { driveInput = input * forwardSpeed; } else if (input < 0) { driveInput = input * backwardSpeed; } else { driveInput = 0; } }
@@ -249,7 +324,31 @@ namespace PA_DronePack
             rigidBody.rotation = startRotation; 
             rigidBody.velocity = Vector3.zero;
         }
-        
+
+        public void SpawnSparkPrefab(Vector3 position)
+        {
+            /*
+             * public static Object Instantiate (Object original, Vector3 position, Quaternion rotation)
+             * original	要复制的现有对象。
+               position	新对象的位置。
+               rotation	新对象的方向。
+               Quaternion.identity：单位旋转（只读）。该四元数对应于“no rotation”- 对象与世界轴或父轴完全对齐
+             */
+            GameObject spark = Instantiate(sparkPrefab, position, Quaternion.identity);
+            /*
+             * ParticleSystem 粒子发生器
+             * Object.Destroy: static void Destroy (Object obj, float t= 0.0F);
+             * obj	要销毁的对象。
+               t   （可选）销毁对象前的延迟。
+               
+               ParticleSystem.MainModule.duration: 粒子系统的持续时间（以秒为单位）,仅当粒子系统未播放时才能设置此属性。
+               ParticleSystem.MainModule.startLifetime: 每个新粒子具有的总生命周期（以秒为单位）
+             */
+            ParticleSystem.MainModule ps = spark.GetComponent<ParticleSystem>().main;//获得ParticleSystem 的main模块
+            Destroy(spark, ps.duration+ ps.startLifetime.constantMax);
+
+        }
+
         float InputMagnitude() { return (Mathf.Abs(driveInput) + Mathf.Abs(strafeInput) + Mathf.Abs(liftInput)) / 3; } //
         //float InputMagnitude() { return (Mathf.Abs(driveInput) + Mathf.Abs(strafeInput) + Mathf.Abs(liftInput)) / 6; }//
         #endregion

@@ -11,15 +11,13 @@ namespace PA_DronePack
         #region Variables
         public enum InputType {
             Desktop,
-            Gamepad,
-            OpenVR,
-            Custom
+            Gamepad
         }
         public InputType inputType = InputType.Desktop;
         InputType? _inputType = null;//可空类型
 
         public string forwardBackward;//对应的input manager中: vertical
-        public string _forwardBackward;//_forwardBackward的作用没明白???????????
+        public string _forwardBackward;
 
         public string strafeLeftRight;//horizontal
         public string _strafeLeftRight;
@@ -32,7 +30,7 @@ namespace PA_DronePack
 
         public string toggleMotor;
         public string _toggleMotor;//z
-        //c 键并没有在input Manager中，那么它是在哪设定的？？？？？？？？？？？？？
+        //
         public string toggleCameraMode;//c
         public string _toggleCameraMode;
 
@@ -200,7 +198,7 @@ namespace PA_DronePack
             #endregion
             
             //其他KeyCode的监听器
-            #region Button / KeyCode Listeners
+             #region Button / KeyCode Listeners
             //Unity Input接收两种参数，一种是Keycode的枚举值，另一种则是每个按键的字符串，以下是每个按键对应的字符串表
             if (toggleMotor != "") {
                 //Unity Input接收两种参数，此部分是第一种KeyCode的枚举值
