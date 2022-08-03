@@ -202,6 +202,10 @@ PrefabInstance:
       propertyPath: acceleration
       value: 0.39
       objectReference: {fileID: 0}
+    - target: {fileID: 114224000277654676, guid: 102b99c93b6fa4141b43ac9a82a68ed9, type: 3}
+      propertyPath: collisionSound
+      value: 
+      objectReference: {fileID: 1068625888}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 102b99c93b6fa4141b43ac9a82a68ed9, type: 3}
 --- !u!1 &705507993
@@ -380,6 +384,11 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &1068625888 stripped
+AudioSource:
+  m_CorrespondingSourceObject: {fileID: 82730757447104980, guid: 102b99c93b6fa4141b43ac9a82a68ed9, type: 3}
+  m_PrefabInstance: {fileID: 222524903}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1132161597
 GameObject:
   m_ObjectHideFlags: 0

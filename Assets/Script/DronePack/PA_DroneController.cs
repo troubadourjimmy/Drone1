@@ -63,9 +63,10 @@ namespace PA_DronePack
         public GameObject sparkPrefab;
         #endregion
         
-        
-
         #region Sound Effects
+        //此处的两个变量flyingSound 和collisionSound,我们直接把audio Source组件拖入了这两个变量中
+        [Tooltip("audio during in flying")] public AudioSource flyingSound;//无人机飞行期间的声音
+        [Tooltip("audio during in collision")] public AudioSource sparkSound;//产生火花时候的声音
         #endregion
 
         #region Read Only Variables
@@ -127,7 +128,7 @@ namespace PA_DronePack
         void Update()
         {
             //浮点计算、螺旋桨 
-            #region Float Calculations, Propellers
+            #region Float Calculations, Propellers,sounds
             //uprightAngleDistance是无人机与直立的距离;transform.up是 drone自身坐标系的y轴在世界坐标系中的位置
             uprightAngleDistance = (1f - transform.up.y) * 0.5f; //是无人机从正面向上的距离
             uprightAngleDistance = (uprightAngleDistance < 0.001) ? 0f : uprightAngleDistance; // 如果value<0.001,value =0; 否则value维持原值不变
@@ -149,7 +150,14 @@ namespace PA_DronePack
             */
             calPropSpeed = (motorOn) ? propSpinSpeed : calPropSpeed * (1f - (propStopSpeed / 2)); //计算螺旋桨应旋转的速度
             foreach (GameObject propeller in propellers) { propeller.transform.Rotate(0, 0, calPropSpeed); } //旋转螺旋桨
-            
+
+            if (flyingSound)
+            {
+                flyingSound.volume = (calPropSpeed / propSpinSpeed);//根据螺旋桨的转速提升音量
+                flyingSound.pitch = 1 + liftForce * 0.02f;//根据liftForce 设定音量的音高
+            }
+
+
             #endregion
         }
 
@@ -276,12 +284,27 @@ namespace PA_DronePack
                             thisCollider	在该点接触的第一个碰撞体。
                  */
                 SpawnSparkPrefab(newObject.contacts[0].point);
+                
+                /*
+                 * spark的声音
+                 * AudioSource.PlayOneShot: public void PlayOneShot (AudioClip clip, float volumeScale= 1.0F);
+                 * clip	正在播放的剪辑
+                 * volumeScale	音量大小 (0-1)。
+                 * 描述:播放 AudioClip，并根据 volumeScale 调整 AudioSource 音量。
+                 */
+                if (sparkSound)
+                {
+                    sparkSound.pitch = 0.2f * collisionMagnitude;
+                    sparkSound.PlayOneShot(sparkSound.clip,collisionMagnitude*0.05f);
+                }
             }
             //如果撞击的力大于最小下坠力，关闭发动机，无人机坠落
             if (collisionMagnitude > fallMinimumForce && fallAfterCollision)
             {
                 motorOn = false;
             }
+            
+            
             #endregion
         }
 
